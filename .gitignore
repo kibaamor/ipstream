@@ -1,0 +1,16 @@
+# Binary
+/ipstream
+/ipstream.exe
+
+# Build output
+dist/
+.coverage/
+.profiles/
+
+# Go test cache
+*.test
+*.out
+
+# OS
+.DS_Store
+Thumbs.db

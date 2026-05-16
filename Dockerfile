@@ -1,0 +1,4 @@
+FROM scratch
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/ipstream /ipstream
+ENTRYPOINT ["/ipstream"]

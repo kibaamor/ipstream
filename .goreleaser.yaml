@@ -1,0 +1,235 @@
+version: 2
+
+project_name: ipstream
+
+release:
+  github:
+    owner: kibaamor
+    name: ipstream
+
+changelog:
+  use: github
+  sort: asc
+
+builds:
+  - id: ipstream
+    main: ./cmd/ipstream
+    binary: ipstream
+    env:
+      - CGO_ENABLED=0
+    targets:
+      - aix_ppc64
+      - darwin_amd64
+      - darwin_arm64
+      - dragonfly_amd64
+      - freebsd_386
+      - freebsd_amd64
+      - freebsd_arm
+      - freebsd_arm64
+      - illumos_amd64
+      - js_wasm
+      - linux_386
+      - linux_amd64
+      - linux_arm
+      - linux_arm64
+      - linux_loong64
+      - linux_mips
+      - linux_mips64
+      - linux_mips64le
+      - linux_mipsle
+      - linux_ppc64
+      - linux_ppc64le
+      - linux_riscv64
+      - linux_s390x
+      - netbsd_386
+      - netbsd_amd64
+      - netbsd_arm
+      - netbsd_arm64
+      - openbsd_386
+      - openbsd_amd64
+      - openbsd_arm
+      - openbsd_arm64
+      - openbsd_ppc64
+      - openbsd_riscv64
+      - plan9_386
+      - plan9_amd64
+      - plan9_arm
+      - solaris_amd64
+      - wasip1_wasm
+      - windows_386
+      - windows_amd64
+      - windows_arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.gitCommit={{.ShortCommit}} -X main.buildDate={{.Date}}
+archives:
+  - id: ipstream
+    ids:
+      - ipstream
+    files:
+      - README.md
+      - LICENSE
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Target }}
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+nfpms:
+  - id: ipstream
+    ids:
+      - ipstream
+    package_name: ipstream
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: Kiba Amor
+    homepage: https://github.com/kibaamor/ipstream
+    maintainer: Kiba Amor <kibaamor@users.noreply.github.com>
+    description: Extract IPv4 and IPv6 addresses from byte streams.
+    license: Apache-2.0
+    formats:
+      - apk
+      - archlinux
+      - deb
+      - ipk
+      - rpm
+    bindir: /usr/bin
+    section: utils
+    priority: optional
+
+brews:
+  - name: ipstream
+    ids:
+      - ipstream
+    homepage: https://github.com/kibaamor/ipstream
+    description: Extract IPv4 and IPv6 addresses from byte streams.
+    license: Apache-2.0
+    repository:
+      owner: kibaamor
+      name: homebrew-tap
+      token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
+    commit_msg_template: "ipstream: {{ .Tag }}"
+    test: |
+      system "#{bin}/ipstream", "--version"
+
+homebrew_casks:
+  - name: ipstream
+    ids:
+      - ipstream
+    binaries:
+      - ipstream
+    homepage: https://github.com/kibaamor/ipstream
+    description: Extract IPv4 and IPv6 addresses from byte streams.
+    license: Apache-2.0
+    repository:
+      owner: kibaamor
+      name: homebrew-tap
+      token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
+    commit_msg_template: "ipstream cask: {{ .Tag }}"
+
+scoops:
+  - name: ipstream
+    ids:
+      - ipstream
+    homepage: https://github.com/kibaamor/ipstream
+    description: Extract IPv4 and IPv6 addresses from byte streams.
+    license: Apache-2.0
+    repository:
+      owner: kibaamor
+      name: scoop-bucket
+      token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
+    commit_msg_template: "ipstream: {{ .Tag }}"
+
+winget:
+  - name: ipstream
+    ids:
+      - ipstream
+    publisher: Kiba Amor
+    publisher_url: https://github.com/kibaamor
+    publisher_support_url: https://github.com/kibaamor/ipstream/issues
+    package_identifier: KibaAmor.ipstream
+    package_name: ipstream
+    homepage: https://github.com/kibaamor/ipstream
+    short_description: Extract IPv4 and IPv6 addresses from byte streams.
+    description: ipstream extracts IPv4 and IPv6 addresses from byte streams.
+    license: Apache-2.0
+    license_url: https://github.com/kibaamor/ipstream/blob/main/LICENSE
+    tags:
+      - cli
+      - ip
+      - ipv4
+      - ipv6
+    repository:
+      owner: kibaamor
+      name: winget-pkgs
+      branch: "ipstream-{{ .Version }}"
+      token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    commit_msg_template: "{{ .PackageIdentifier }}: {{ .Tag }}"
+
+snapcrafts:
+  - id: ipstream
+    ids:
+      - ipstream
+    name: ipstream
+    title: ipstream
+    publish: true
+    summary: Extract IPv4 and IPv6 addresses from streams.
+    description: |
+      ipstream extracts IPv4 and IPv6 addresses from byte streams.
+    license: Apache-2.0
+    base: core22
+    grade: stable
+    confinement: strict
+    disable: '{{ eq .Env.SNAPCRAFT_STORE_CREDENTIALS "" }}'
+
+nix:
+  - name: ipstream
+    ids:
+      - ipstream
+    homepage: https://github.com/kibaamor/ipstream
+    description: Extract IPv4 and IPv6 addresses from byte streams.
+    license: asl20
+    repository:
+      owner: kibaamor
+      name: nur-packages
+      token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
+    commit_msg_template: "ipstream: {{ .Tag }}"
+
+dockers_v2:
+  - id: ipstream
+    ids:
+      - ipstream
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/kibaamor/ipstream
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.description: Extract IPv4 and IPv6 addresses from byte streams.
+      org.opencontainers.image.licenses: Apache-2.0
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.source: https://github.com/kibaamor/ipstream
+      org.opencontainers.image.title: ipstream
+      org.opencontainers.image.url: https://github.com/kibaamor/ipstream
+      org.opencontainers.image.version: "{{ .Version }}"
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+upx:
+  - ids:
+      - ipstream
+    enabled: true
+    compress: best
+    lzma: true

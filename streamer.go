@@ -37,7 +37,7 @@ func (f HandleFunc) Handle(raw []byte, addr netip.Addr) {
 	f(raw, addr)
 }
 
-// Streamer implements io.Writer and io.Closer for IPv4/IPv6 stream scanning.
+// Streamer scans IPv4/IPv6 addresses from byte stream chunks.
 type Streamer struct {
 	h Handler
 
@@ -73,10 +73,8 @@ func NewStreamer(h Handler) *Streamer {
 	}
 }
 
-// Write scans p and emits complete segments; call Close to flush a trailing token.
-func (s *Streamer) Write(p []byte) (int, error) {
-	originalLen := len(p)
-
+// Write scans p and emits complete segments; call Flush to flush a trailing token.
+func (s *Streamer) Write(p []byte) {
 	for pl := len(p); pl > 0; pl = len(p) {
 		if s.overflowing {
 			// Skip the rest of an oversized IP-character run.
@@ -200,21 +198,18 @@ func (s *Streamer) Write(p []byte) (int, error) {
 
 		p = p[i:]
 	}
-
-	return originalLen, nil
 }
 
-// Close flushes any pending token data.
-func (s *Streamer) Close() error {
+// Flush emits any pending token data and leaves the Streamer ready for more Write calls.
+func (s *Streamer) Flush() {
 	if s.overflowing {
 		s.resetTokenState()
-		return nil
+		return
 	}
 	if len(s.carrier) > 0 {
 		s.tryParse(s.carrier)
 		s.carrier = s.carrier[:0]
 	}
-	return nil
 }
 
 func (s *Streamer) tryParse(raw []byte) {

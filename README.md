@@ -74,6 +74,7 @@ go get github.com/kibaamor/ipstream
 ### Usage
 
 Use `NewStreamer` to scan arbitrary chunks. The handler receives every input segment; `addr.IsValid()` means `raw` parsed as `addr`.
+Call `Flush` when the current input boundary should emit a pending token; the same streamer can continue accepting `Write` calls afterward.
 
 ```go
 package main
@@ -92,9 +93,10 @@ func main() {
 		}
 	}))
 
-	_, _ = streamer.Write([]byte("client=192.168.1.1 "))
-	_, _ = streamer.Write([]byte("gateway=2001:db8::1"))
-	_ = streamer.Close() // flushes the final token
+	streamer.Write([]byte("client=192.168.1.1 "))
+	streamer.Write([]byte("gateway=2001:db8::1"))
+	streamer.Flush() // emits the pending token; more writes are still allowed
+	streamer.Write([]byte(" next-hop=10.0.0.1 "))
 }
 ```
 
@@ -103,6 +105,7 @@ Output:
 ```text
 192.168.1.1
 2001:db8::1
+10.0.0.1
 ```
 
 ## Issues

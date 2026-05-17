@@ -73,41 +73,53 @@ Extract IPv4 and IPv6 addresses from standard input, one per line.
 }
 
 func filterIPs(in io.Reader, out io.Writer) error {
-	var writeErr error
-
-	newline := []byte{'\n'}
-	streamer := ipstream.NewStreamer(ipstream.HandleFunc(func(raw []byte, addr netip.Addr) {
-		if !addr.IsValid() || writeErr != nil {
-			return
-		}
-		if _, err := out.Write(raw); err != nil {
-			writeErr = err
-			return
-		}
-		_, writeErr = out.Write(newline)
-	}))
-
-	if _, err := io.Copy(streamer, stopOnWriteErrorReader{r: in, err: &writeErr}); err != nil {
-		if writeErr != nil {
-			return fmt.Errorf("write output: %w", writeErr)
-		}
-		return fmt.Errorf("read input: %w", err)
+	emitter := ipLineEmitter{
+		out:     out,
+		newline: []byte{'\n'},
 	}
-	_ = streamer.Close()
-	if writeErr != nil {
-		return fmt.Errorf("write output: %w", writeErr)
+	streamer := ipstream.NewStreamer(&emitter)
+
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := in.Read(buf)
+		if n > 0 {
+			streamer.Write(buf[:n])
+			if err := emitter.Err(); err != nil {
+				return err
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("read input: %w", err)
+		}
 	}
-	return nil
+
+	streamer.Flush()
+	return emitter.Err()
 }
 
-type stopOnWriteErrorReader struct {
-	r   io.Reader
-	err *error
+type ipLineEmitter struct {
+	out     io.Writer
+	newline []byte
+	err     error
 }
 
-func (r stopOnWriteErrorReader) Read(p []byte) (int, error) {
-	if *r.err != nil {
-		return 0, *r.err
+func (e *ipLineEmitter) Handle(raw []byte, addr netip.Addr) {
+	if !addr.IsValid() || e.err != nil {
+		return
 	}
-	return r.r.Read(p)
+	if _, err := e.out.Write(raw); err != nil {
+		e.err = err
+		return
+	}
+	_, e.err = e.out.Write(e.newline)
+}
+
+func (e *ipLineEmitter) Err() error {
+	if e.err == nil {
+		return nil
+	}
+	return fmt.Errorf("write output: %w", e.err)
 }

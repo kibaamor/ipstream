@@ -35,33 +35,19 @@ func reconstruct(calls []call) string {
 	return b.String()
 }
 
-// writeAll writes in one shot and closes the streamer.
+// writeAll writes in one shot and flushes the streamer.
 func writeAll(t *testing.T, s *ipstream.Streamer, input string) {
 	t.Helper()
-	mustWrite(t, s, []byte(input))
-	mustClose(t, s)
-}
-
-func mustWrite(t *testing.T, s *ipstream.Streamer, p []byte) {
-	t.Helper()
-	if _, err := s.Write(p); err != nil {
-		t.Fatalf("Write() failed: %v", err)
-	}
-}
-
-func mustClose(t *testing.T, s *ipstream.Streamer) {
-	t.Helper()
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close() failed: %v", err)
-	}
+	s.Write([]byte(input))
+	s.Flush()
 }
 
 func writeChunks(t *testing.T, s *ipstream.Streamer, chunks ...string) {
 	t.Helper()
 	for _, chunk := range chunks {
-		mustWrite(t, s, []byte(chunk))
+		s.Write([]byte(chunk))
 	}
-	mustClose(t, s)
+	s.Flush()
 }
 
 func tokenBoundaryInputs(token string) []struct {
@@ -156,22 +142,21 @@ const maxCandidateTokenLen = len("ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255%
 
 // --- Basics ---
 
-func TestWrite_ReturnsFullLength(t *testing.T) {
-	s, _ := newStreamer()
+func TestWrite_AcceptsFullInput(t *testing.T) {
+	s, calls := newStreamer()
 	input := []byte("hello 1.2.3.4 world")
-	n, err := s.Write(input)
-	if n != len(input) {
-		t.Errorf("n = %d, want %d", n, len(input))
-	}
-	if err != nil {
-		t.Errorf("err = %v, want nil", err)
+	s.Write(input)
+	s.Flush()
+	if got := reconstruct(calls()); got != string(input) {
+		t.Errorf("reconstruct=%q, want %q", got, input)
 	}
 }
 
-func TestClose_ReturnsNil(t *testing.T) {
-	s, _ := newStreamer()
-	if err := s.Close(); err != nil {
-		t.Errorf("Close() = %v, want nil", err)
+func TestFlush_EmptyDoesNothing(t *testing.T) {
+	s, calls := newStreamer()
+	s.Flush()
+	if got := calls(); len(got) != 0 {
+		t.Errorf("expected no calls, got %+v", got)
 	}
 }
 
@@ -478,51 +463,55 @@ func TestIPv6_LoopbackWithEth0Zone_DelimiterBoundaries(t *testing.T) {
 	}
 }
 
-// --- Close ---
+// --- Flush ---
 
-func TestClose_EmitsTrailingToken(t *testing.T) {
-	s, calls := newStreamer()
-	if _, err := s.Write([]byte("1.2.3.4")); err != nil { // no trailing non-IP delimiter
-		t.Fatalf("Write() failed: %v", err)
+func TestFlush_EmitsPendingTokens(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  netip.Addr
+	}{
+		{"ipv4", "1.2.3.4", netip.MustParseAddr("1.2.3.4")},
+		{"ipv6", "::1", netip.MustParseAddr("::1")},
 	}
 
-	// Pending token waits for Close.
-	for _, c := range calls() {
-		if c.raw == "1.2.3.4" {
-			t.Fatal("1.2.3.4 emitted before Close")
-		}
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, calls := newStreamer()
+			s.Write([]byte(tt.input)) // no trailing non-IP delimiter
 
-	mustClose(t, s)
-	if !findAddr(calls(), netip.MustParseAddr("1.2.3.4")) {
-		t.Errorf("1.2.3.4 not found after Close; calls: %+v", calls())
+			if got := calls(); len(got) != 0 {
+				t.Fatalf("pending token emitted before Flush: %+v", got)
+			}
+
+			s.Flush()
+			if !findAddr(calls(), tt.want) {
+				t.Errorf("%s not found after Flush; calls: %+v", tt.want, calls())
+			}
+		})
 	}
 }
 
-func TestClose_Idempotent(t *testing.T) {
-	// Closing with an empty carrier should not produce extra calls.
-	s, calls := newStreamer()
-	if _, err := s.Write([]byte(" 1.2.3.4 ")); err != nil { // trailing space forces flush inside Write
-		t.Fatalf("Write() failed: %v", err)
+func TestFlush_Idempotent(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"empty_carrier", " 1.2.3.4 "}, // trailing space forces flush inside Write
+		{"pending_token", "10.0.0.1"},
 	}
-	n := len(calls())
-	mustClose(t, s)
-	mustClose(t, s)
-	if len(calls()) != n {
-		t.Errorf("extra calls after redundant Close: %+v", calls()[n:])
-	}
-}
 
-func TestClose_FlushesTrailingToken(t *testing.T) {
-	s, calls := newStreamer()
-	if _, err := s.Write([]byte("::1")); err != nil {
-		t.Fatalf("Write() failed: %v", err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close() failed: %v", err)
-	}
-	if !findAddr(calls(), netip.MustParseAddr("::1")) {
-		t.Errorf("::1 not found after Close; calls: %+v", calls())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, calls := newStreamer()
+			s.Write([]byte(tt.input))
+			s.Flush()
+			n := len(calls())
+			s.Flush()
+			if len(calls()) != n {
+				t.Errorf("extra calls after second Flush: %+v", calls()[n:])
+			}
+		})
 	}
 }
 
@@ -622,13 +611,13 @@ func TestStreaming_SplitAcrossWritesWithoutTrailingDelimiter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s, calls := newStreamer()
 			for _, chunk := range tt.chunks {
-				mustWrite(t, s, []byte(chunk))
+				s.Write([]byte(chunk))
 			}
 			if got := calls(); len(got) != 0 {
-				t.Fatalf("token emitted before Close without trailing delimiter: %+v", got)
+				t.Fatalf("token emitted before Flush without trailing delimiter: %+v", got)
 			}
 
-			mustClose(t, s)
+			s.Flush()
 			gotCalls := calls()
 			if reconstruct(gotCalls) != tt.raw {
 				t.Fatalf("reconstructed input = %q, want %q; calls: %+v", reconstruct(gotCalls), tt.raw, gotCalls)
@@ -661,13 +650,9 @@ func TestStreaming_ByteByByte(t *testing.T) {
 
 	s, calls := newStreamer()
 	for i := 0; i < len(input); i++ {
-		if _, err := s.Write([]byte{input[i]}); err != nil {
-			t.Fatalf("Write() failed: %v", err)
-		}
+		s.Write([]byte{input[i]})
 	}
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close() failed: %v", err)
-	}
+	s.Flush()
 
 	if !findAddr(calls(), want) {
 		t.Errorf("%s not found; calls: %+v", want, calls())
@@ -680,15 +665,9 @@ func TestStreaming_ByteByByte(t *testing.T) {
 func TestStreaming_NonIPBetweenChunks_TerminatesToken(t *testing.T) {
 	// A non-IP byte terminates the carried token.
 	s, calls := newStreamer()
-	if _, err := s.Write([]byte("192.168")); err != nil {
-		t.Fatalf("Write() failed: %v", err)
-	}
-	if _, err := s.Write([]byte(" 1.1 ")); err != nil { // space terminates "192.168"
-		t.Fatalf("Write() failed: %v", err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close() failed: %v", err)
-	}
+	s.Write([]byte("192.168"))
+	s.Write([]byte(" 1.1 ")) // space terminates "192.168"
+	s.Flush()
 
 	for _, c := range calls() {
 		if c.raw == "192.168" && c.addr.IsValid() {
@@ -726,15 +705,9 @@ func TestOversizedToken_CarrierFlushedFirst(t *testing.T) {
 	prefix := "192" // 3 bytes in carrier after first write
 	bulk := strings.Repeat("a", maxCandidateTokenLen-len(prefix))
 	s, calls := newStreamer()
-	if _, err := s.Write([]byte(prefix)); err != nil { // carrier = "192"
-		t.Fatalf("Write() failed: %v", err)
-	}
-	if _, err := s.Write([]byte("." + bulk)); err != nil { // carrier + current chunk exceeds maxTokenLen
-		t.Fatalf("Write() failed: %v", err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close() failed: %v", err)
-	}
+	s.Write([]byte(prefix))     // carrier = "192"
+	s.Write([]byte("." + bulk)) // carrier + current chunk exceeds maxTokenLen
+	s.Flush()
 
 	gotCalls := calls()
 	raws := make([]string, 0, len(gotCalls))
@@ -871,14 +844,14 @@ func TestStreaming_IPv6DoubleColonAcrossWriteBoundary(t *testing.T) {
 	}
 }
 
-func TestClose_IncompleteTokenEmittedAsFalse(t *testing.T) {
-	// Close flushes the partial token and resets state.
+func TestFlush_IncompleteTokenEmittedAsFalse(t *testing.T) {
+	// Flush emits the partial token and resets state.
 	s, calls := newStreamer()
-	mustWrite(t, s, []byte("192.168")) // 2 dots, incomplete
-	mustClose(t, s)                    // forces "192.168" out as valid=false; resets counters
+	s.Write([]byte("192.168")) // 2 dots, incomplete
+	s.Flush()                  // forces "192.168" out as valid=false; resets counters
 
-	mustWrite(t, s, []byte("1.2.3.4 ")) // fresh token, valid
-	mustClose(t, s)
+	s.Write([]byte("1.2.3.4 ")) // fresh token, valid
+	s.Flush()
 
 	partialFound := false
 	for _, c := range calls() {
@@ -893,14 +866,14 @@ func TestClose_IncompleteTokenEmittedAsFalse(t *testing.T) {
 		t.Errorf("partial token 192.168 not found; calls: %+v", calls())
 	}
 	if !findAddr(calls(), mustAddr("1.2.3.4")) {
-		t.Errorf("1.2.3.4 not found after close of partial token; calls: %+v", calls())
+		t.Errorf("1.2.3.4 not found after flush of partial token; calls: %+v", calls())
 	}
 }
 
-func TestClose_IncompleteIPv6TokenEmittedAsFalse(t *testing.T) {
+func TestFlush_IncompleteIPv6TokenEmittedAsFalse(t *testing.T) {
 	s, calls := newStreamer()
-	mustWrite(t, s, []byte("2001:db8"))
-	mustClose(t, s)
+	s.Write([]byte("2001:db8"))
+	s.Flush()
 
 	found := false
 	for _, c := range calls() {
@@ -945,9 +918,9 @@ func TestIPDetection_ConsistentAcrossSplitPoints(t *testing.T) {
 
 	for split := 1; split < len(input); split++ {
 		s, calls := newStreamer()
-		mustWrite(t, s, []byte(input[:split]))
-		mustWrite(t, s, []byte(input[split:]))
-		mustClose(t, s)
+		s.Write([]byte(input[:split]))
+		s.Write([]byte(input[split:]))
+		s.Flush()
 
 		got := validAddrs(calls())
 		if len(got) != len(wantAddrs) {
@@ -1172,36 +1145,25 @@ func TestIPv6_TwoColons_InvalidAddress(t *testing.T) {
 	assertTokenValid(t, tok, false)
 }
 
-// --- Write after Close ---
+// --- Write after Flush ---
 
-func TestWrite_AfterClose_StillWorks(t *testing.T) {
+func TestFlush_AllowsMoreWrites(t *testing.T) {
 	s, calls := newStreamer()
-	mustWrite(t, s, []byte("1.2.3.4 "))
-	mustClose(t, s)
+	s.Write([]byte("1.2.3.4 "))
+	s.Flush()
 	n1 := len(calls())
 
-	mustWrite(t, s, []byte("::1 "))
-	mustClose(t, s)
+	s.Write([]byte("::1 "))
+	s.Flush()
 
 	if !findAddr(calls(), mustAddr("1.2.3.4")) {
 		t.Errorf("1.2.3.4 not found; calls: %+v", calls())
 	}
 	if !findAddr(calls(), mustAddr("::1")) {
-		t.Errorf("::1 not found after write-after-close; calls: %+v", calls())
+		t.Errorf("::1 not found after write-after-flush; calls: %+v", calls())
 	}
 	if len(calls()) <= n1 {
-		t.Errorf("no new calls after write-after-close")
-	}
-}
-
-func TestClose_Idempotent_WithPendingToken(t *testing.T) {
-	s, calls := newStreamer()
-	mustWrite(t, s, []byte("10.0.0.1"))
-	mustClose(t, s)
-	n := len(calls())
-	mustClose(t, s)
-	if len(calls()) != n {
-		t.Errorf("extra calls after second Close: %+v", calls()[n:])
+		t.Errorf("no new calls after write-after-flush")
 	}
 }
 

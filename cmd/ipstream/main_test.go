@@ -116,7 +116,7 @@ func TestFilterIPs_StopsReadingAfterWriteError(t *testing.T) {
 	}
 }
 
-func TestFilterIPs_ReportsCloseWriteError(t *testing.T) {
+func TestFilterIPs_ReportsFlushWriteError(t *testing.T) {
 	err := filterIPs(strings.NewReader("1.2.3.4"), &errorWriter{err: errors.New("boom")})
 	if err == nil {
 		t.Fatal("expected error")

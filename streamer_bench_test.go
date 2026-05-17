@@ -28,12 +28,8 @@ func benchmarkWrite(b *testing.B, input []byte) {
 	b.ResetTimer()
 	for b.Loop() {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
-		if _, err := s.Write(input); err != nil {
-			b.Fatalf("Write() failed: %v", err)
-		}
-		if err := s.Close(); err != nil {
-			b.Fatalf("Close() failed: %v", err)
-		}
+		s.Write(input)
+		s.Flush()
 	}
 	b.StopTimer()
 	reportBenchParseStats(b, b.N)
@@ -47,16 +43,21 @@ func benchmarkWriteChunks(b *testing.B, data []byte, chunks [][]byte) {
 	for b.Loop() {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
 		for _, chunk := range chunks {
-			if _, err := s.Write(chunk); err != nil {
-				b.Fatalf("Write() failed: %v", err)
-			}
+			s.Write(chunk)
 		}
-		if err := s.Close(); err != nil {
-			b.Fatalf("Close() failed: %v", err)
-		}
+		s.Flush()
 	}
 	b.StopTimer()
 	reportBenchParseStats(b, b.N)
+}
+
+func fixedChunks(data []byte, size int) [][]byte {
+	chunks := make([][]byte, 0, len(data)/size+1)
+	for off := 0; off < len(data); off += size {
+		end := min(off+size, len(data))
+		chunks = append(chunks, data[off:end])
+	}
+	return chunks
 }
 
 func benchmarkWriteByteByByte(b *testing.B, data []byte) {
@@ -69,13 +70,9 @@ func benchmarkWriteByteByByte(b *testing.B, data []byte) {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
 		for _, c := range data {
 			buf[0] = c
-			if _, err := s.Write(buf); err != nil {
-				b.Fatalf("Write() failed: %v", err)
-			}
+			s.Write(buf)
 		}
-		if err := s.Close(); err != nil {
-			b.Fatalf("Close() failed: %v", err)
-		}
+		s.Flush()
 	}
 	b.StopTimer()
 	reportBenchParseStats(b, b.N)
@@ -88,22 +85,27 @@ func benchmarkWriteSplitAt(b *testing.B, data []byte, split int) {
 	b.ResetTimer()
 	for b.Loop() {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
-		if _, err := s.Write(data[:split]); err != nil {
-			b.Fatalf("Write() first chunk failed: %v", err)
-		}
-		if _, err := s.Write(data[split:]); err != nil {
-			b.Fatalf("Write() second chunk failed: %v", err)
-		}
-		if err := s.Close(); err != nil {
-			b.Fatalf("Close() failed: %v", err)
-		}
+		s.Write(data[:split])
+		s.Write(data[split:])
+		s.Flush()
 	}
 	b.StopTimer()
 	reportBenchParseStats(b, b.N)
 }
 
+func benchmarkWriteSplitAfter(b *testing.B, data []byte, token string, prefixLen int) {
+	b.Helper()
+
+	tokenStart := strings.Index(string(data), token)
+	if tokenStart < 0 {
+		b.Fatalf("token %q not found in benchmark data", token)
+	}
+	split := tokenStart + prefixLen
+	benchmarkWriteSplitAt(b, data, split)
+}
+
 var (
-	// Most datasets end with a delimiter; *_NoTrailingDelimiter measures Close flush.
+	// Most datasets end with a delimiter; *_NoTrailingDelimiter measures Flush.
 	//
 	// ~40 KB — dense IPv4 addresses separated by spaces.
 	denseIPv4Input                    = []byte(strings.Repeat("192.168.1.1 10.0.0.2 172.16.0.3 8.8.8.8 ", 1000))
@@ -268,13 +270,7 @@ func BenchmarkWrite_NoIPs(b *testing.B) {
 func BenchmarkWrite_SmallChunks(b *testing.B) {
 	const chunkSize = 64
 	data := denseIPv4Input
-	chunks := make([][]byte, 0, len(data)/chunkSize+1)
-	for off := 0; off < len(data); off += chunkSize {
-		end := min(off+chunkSize, len(data))
-		chunks = append(chunks, data[off:end])
-	}
-
-	benchmarkWriteChunks(b, data, chunks)
+	benchmarkWriteChunks(b, data, fixedChunks(data, chunkSize))
 }
 
 // BenchmarkWrite_ByteByByte measures one-byte Write calls.
@@ -285,14 +281,12 @@ func BenchmarkWrite_ByteByByte(b *testing.B) {
 
 func BenchmarkWrite_IPv4SplitAcrossWrites(b *testing.B) {
 	data := []byte("prefix 192.168.1.1 suffix")
-	split := strings.Index(string(data), "192.168.1.1") + len("192.168")
-	benchmarkWriteSplitAt(b, data, split)
+	benchmarkWriteSplitAfter(b, data, "192.168.1.1", len("192.168"))
 }
 
 func BenchmarkWrite_IPv6SplitAcrossWrites(b *testing.B) {
 	data := []byte("prefix 2001:db8::1 suffix")
-	split := strings.Index(string(data), "2001:db8::1") + len("2001:db8:")
-	benchmarkWriteSplitAt(b, data, split)
+	benchmarkWriteSplitAfter(b, data, "2001:db8::1", len("2001:db8:"))
 }
 
 // BenchmarkWrite_FalsePositiveIPv4 measures hex-dotted rejection.

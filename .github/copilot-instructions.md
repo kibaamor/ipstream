@@ -15,7 +15,7 @@ goreleaser healthcheck
 
 Small dependency-free Go library (`streamer.go`, `streamer_chartype.go`, package `ipstream`).
 
-`Streamer` implements `io.Writer` + `io.Closer` and scans an arbitrary byte stream for IPv4 and IPv6 addresses. For each segment it calls a `Handler`:
+`Streamer` scans arbitrary byte stream chunks for IPv4 and IPv6 addresses. For each segment it calls a `Handler`:
 
 ```go
 type Handler interface {
@@ -30,7 +30,7 @@ Concatenating all emitted `raw` slices reconstructs the input.
 
 ## Key Conventions
 
-**Token accumulation:** `carrier` buffers IP-character runs across `Write` calls. `Close` drains it.
+**Token accumulation:** `carrier` buffers IP-character runs across `Write` calls. `Flush` drains it without closing the streamer; callers may continue writing afterward.
 
 **Pre-filtering:** counters (`dotCount`, `colonCount`, `pctCount`, `maxColonRun`) reject obvious non-IP tokens before parsing. Apply the rejection gates in this order, and only continue while the relevant candidate still satisfies its gate:
 
@@ -73,7 +73,7 @@ This project has hot-path parser code. Performance changes must be benchmark-dri
 Parser changes need tests for streaming boundaries, not just single-buffer input:
 
 - valid and invalid IPs split across multiple `Write` calls
-- inputs ending without a delimiter, flushed by `Close`
+- inputs ending without a delimiter, flushed by `Flush`
 - IPv4, IPv6, IPv4-mapped IPv6, and IPv6 zone IDs
 - oversized tokens and tokens immediately following overflow
 - reconstruction of the original input by concatenating emitted `raw` slices

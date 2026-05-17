@@ -236,12 +236,11 @@ func (s *Streamer) tryParse(raw []byte) {
 				parseIPv4FastOK++
 			}
 		}
-	} else if s.colonCount >= 2 && s.colonCount <= 7 &&
-		s.pctCount <= 1 && s.maxColonRun <= 2 &&
-		(s.pctCount == 1 || s.dotCount == 3 || s.colonCount == 7 || s.maxColonRun == 2) {
+	} else if s.pctCount == 0 &&
+		s.colonCount >= 2 && s.colonCount <= 7 && s.maxColonRun <= 2 &&
+		(s.dotCount == 3 || s.colonCount == 7 || s.maxColonRun == 2) {
 
-		if s.pctCount == 0 &&
-			(s.dotCount == 0 || s.dotCount == 3) &&
+		if (s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6Len && rawLen <= maxIPv6Len &&
 			(firstType&ctHexOrColon) != 0 && (lastType&ctHexOrColon) != 0 {
 			var err error
@@ -253,14 +252,18 @@ func (s *Streamer) tryParse(raw []byte) {
 					parseAddrOK++
 				}
 			}
-		} else if s.pctCount == 1 &&
-			rawLen >= minIPv6WithZoneLen && rawLen <= maxIPv6WithZoneLen &&
-			(firstType&ctHexOrColon) != 0 && lastType&ctIPv6ZoneBoundary != 0 {
-			pctOffset := bytes.IndexByte(raw[minIPv6Len:], '%')
-			if pctOffset >= 0 && pctOffset >= rawLen-maxIPv6ZoneLen-1-minIPv6Len &&
-				pctOffset <= rawLen-2-minIPv6Len {
-				if (charType[raw[minIPv6Len+pctOffset-1]]&ctHexOrColon) != 0 &&
-					charType[raw[minIPv6Len+pctOffset+1]]&ctIPv6ZoneBoundary != 0 {
+		}
+	} else if s.pctCount == 1 &&
+		rawLen >= minIPv6WithZoneLen && rawLen <= maxIPv6WithZoneLen &&
+		(firstType&ctHexOrColon) != 0 && lastType&ctIPv6ZoneBoundary != 0 {
+		pctOffset := bytes.IndexByte(raw[minIPv6Len:], '%')
+		if pctOffset >= 0 && pctOffset >= rawLen-maxIPv6ZoneLen-1-minIPv6Len &&
+			pctOffset <= rawLen-2-minIPv6Len {
+			pctIndex := minIPv6Len + pctOffset
+			if (charType[raw[pctIndex-1]]&ctHexOrColon) != 0 &&
+				charType[raw[pctIndex+1]]&ctIPv6ZoneBoundary != 0 {
+				addrColonCount, addrMaxColonRun := ipv6ColonStats(raw[:pctIndex])
+				if addrColonCount >= 2 && addrColonCount <= 7 && addrMaxColonRun <= 2 {
 					var err error
 					addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 					ok = err == nil
@@ -277,6 +280,22 @@ func (s *Streamer) tryParse(raw []byte) {
 
 	s.h.Handle(raw, addr)
 	s.resetTokenState()
+}
+
+func ipv6ColonStats(raw []byte) (colonCount, maxColonRun uint8) {
+	var colonRun uint8
+	for _, c := range raw {
+		if c != ':' {
+			colonRun = 0
+			continue
+		}
+		colonRun++
+		if colonRun > maxColonRun {
+			maxColonRun = colonRun
+		}
+		colonCount++
+	}
+	return colonCount, maxColonRun
 }
 
 // parseIPv4Fast parses a dotted-decimal IPv4 address without leading zeroes.

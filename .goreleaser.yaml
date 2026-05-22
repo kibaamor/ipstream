@@ -37,8 +37,7 @@ archives:
     files:
       - README.md
       - LICENSE
-    name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_{{ .Target }}
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats:
@@ -91,22 +90,6 @@ scoops:
       name: scoop-bucket
       token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
     commit_msg_template: "ipstream: {{ .Tag }}"
-
-snapcrafts:
-  - id: ipstream
-    ids:
-      - ipstream
-    name: ipstream
-    title: ipstream
-    publish: true
-    summary: Extract IPv4 and IPv6 addresses from streams.
-    description: |
-      ipstream extracts IPv4 and IPv6 addresses from byte streams.
-    license: Apache-2.0
-    base: core22
-    grade: stable
-    confinement: strict
-    disable: '{{ eq .Env.SNAPCRAFT_STORE_CREDENTIALS "" }}'
 
 dockers_v2:
   - id: ipstream

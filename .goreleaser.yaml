@@ -77,21 +77,6 @@ nfpms:
     section: utils
     priority: optional
 
-brews:
-  - name: ipstream
-    ids:
-      - ipstream
-    homepage: https://github.com/kibaamor/ipstream
-    description: Extract IPv4 and IPv6 addresses from byte streams.
-    license: Apache-2.0
-    repository:
-      owner: kibaamor
-      name: homebrew-tap
-      token: "{{ .Env.GORELEASER_PUBLISH_TOKEN }}"
-    commit_msg_template: "ipstream: {{ .Tag }}"
-    test: |
-      system "#{bin}/ipstream", "--version"
-
 homebrew_casks:
   - name: ipstream
     ids:

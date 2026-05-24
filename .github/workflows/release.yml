@@ -50,4 +50,3 @@ jobs:
           args: release --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_PUBLISH_TOKEN: ${{ secrets.GORELEASER_PUBLISH_TOKEN }}

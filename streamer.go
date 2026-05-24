@@ -220,10 +220,12 @@ func (s *Streamer) tryParse(raw []byte) {
 	firstType := charType[raw[0]]
 	lastType := charType[raw[rawLen-1]]
 
+	switch {
 	// Pure IPv4 stays on the allocation-free parser.
-	if s.colonCount == 0 && s.pctCount == 0 && s.dotCount == 3 &&
+	case s.colonCount == 0 && s.pctCount == 0 && s.dotCount == 3 &&
 		rawLen >= minIPv4Len && rawLen <= maxIPv4Len &&
-		(firstType&ctDigit) != 0 && (lastType&ctDigit) != 0 {
+		(firstType&ctDigit) != 0 && (lastType&ctDigit) != 0:
+
 		addr, ok = parseIPv4Fast(raw)
 		if parseStatsEnabled {
 			parseIPv4FastCalls++
@@ -231,9 +233,9 @@ func (s *Streamer) tryParse(raw []byte) {
 				parseIPv4FastOK++
 			}
 		}
-	} else if s.pctCount == 0 &&
+	case s.pctCount == 0 &&
 		s.colonCount >= 2 && s.colonCount <= 7 && s.maxColonRun <= 2 &&
-		(s.dotCount == 3 || s.colonCount == 7 || s.maxColonRun == 2) {
+		(s.dotCount == 3 || s.colonCount == 7 || s.maxColonRun == 2):
 
 		if (s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6Len && rawLen <= maxIPv6Len &&
@@ -248,9 +250,10 @@ func (s *Streamer) tryParse(raw []byte) {
 				}
 			}
 		}
-	} else if s.pctCount == 1 &&
+	case s.pctCount == 1 &&
 		rawLen >= minIPv6WithZoneLen && rawLen <= maxIPv6WithZoneLen &&
-		(firstType&ctHexOrColon) != 0 && lastType&ctIPv6ZoneBoundary != 0 {
+		(firstType&ctHexOrColon) != 0 && lastType&ctIPv6ZoneBoundary != 0:
+
 		pctOffset := bytes.IndexByte(raw[minIPv6Len:], '%')
 		if pctOffset >= 0 && pctOffset >= rawLen-maxIPv6ZoneLen-1-minIPv6Len &&
 			pctOffset <= rawLen-2-minIPv6Len {

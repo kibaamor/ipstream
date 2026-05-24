@@ -43,15 +43,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Snapcraft
-        if: ${{ env.SNAPCRAFT_STORE_CREDENTIALS != '' }}
-        run: |
-          sudo snap install snapcraft --classic
-          snapcraft login --with <(printf '%s' "$SNAPCRAFT_STORE_CREDENTIALS")
-
-      - name: Set up Nix
-        uses: cachix/install-nix-action@v31
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:

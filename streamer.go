@@ -41,9 +41,10 @@ func (f HandleFunc) Handle(raw []byte, addr netip.Addr) {
 type Streamer struct {
 	h Handler
 
+	// carrier buffers current IP-character run across Write calls.
 	carrier []byte
 
-	// Current token counters, including carrier bytes.
+	// Current token counters, including token bytes.
 	dotCount    uint8
 	colonCount  uint8
 	pctCount    uint8
@@ -172,7 +173,7 @@ func (s *Streamer) Write(p []byte) {
 		switch {
 		case len(s.carrier)+i > maxTokenLen:
 			overflowingZone := pctCount > 0
-			// Emit carried bytes first to preserve handler order.
+			// Emit token bytes first to preserve handler order.
 			if len(s.carrier) > 0 {
 				s.h.Handle(s.carrier, netip.Addr{})
 				s.carrier = s.carrier[:0]

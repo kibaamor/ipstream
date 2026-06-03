@@ -36,6 +36,8 @@ func init() {
 			charType[i] = ctPct
 		}
 
+		// Zone chars: g-z/G-Z can start/end zones (ctZoneChar | ctZoneBoundary),
+		// while _/- can only continue them (ctZoneChar only).
 		switch {
 		case c >= 'g' && c <= 'z', c >= 'G' && c <= 'Z':
 			charType[i] = ctZoneChar | ctZoneBoundary

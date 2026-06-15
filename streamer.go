@@ -2,7 +2,6 @@
 package ipstream
 
 import (
-	"bytes"
 	"net/netip"
 	"unsafe"
 )
@@ -75,6 +74,8 @@ func NewStreamer(h Handler) *Streamer {
 // Write scans the byte slice p and emits complete segments (IP addresses and
 // non-IP runs) to the Handler as they are identified.
 func (s *Streamer) Write(p []byte) {
+	ct := &charType
+
 	for pl := len(p); pl > 0; pl = len(p) {
 
 		// --- Overflow path: the current run exceeded maxTokenLen. ---
@@ -83,7 +84,7 @@ func (s *Streamer) Write(p []byte) {
 		if s.overflowing {
 			i := 0
 			_ = p[pl-1] // bounds check hint
-			for i < pl && charType[p[i]] != 0 {
+			for i < pl && ct[p[i]] != 0 {
 				i++
 			}
 
@@ -99,12 +100,20 @@ func (s *Streamer) Write(p []byte) {
 				continue
 			}
 		}
-
 		// --- Non-IP batching path: the first byte of p is a delimiter. ---
 		// The pctCount == 0 guard prevents zone chars (NonHexAlpha, OtherIPv6ZoneChar)
 		// from being treated as delimiters when inside a zone token.
 		// Those chars pass through to the main scanning loop instead.
-		if (s.pctCount == 0 && charType[p[0]]&ctIPChar == 0) || (s.pctCount > 0 && charType[p[0]]&ctIPv6ZoneChar == 0) {
+		ctDelimiter := byte(0)
+		if s.pctCount == 0 {
+			// In non-zone context, delimiters are any chars that are not valid IP chars.
+			ctDelimiter = ctIPChar
+		} else {
+			// In zone context, delimiters are any chars that are not valid IPv6 zone chars.
+			ctDelimiter = ctIPv6ZoneChar
+		}
+
+		if ct[p[0]]&ctDelimiter == 0 {
 			if len(s.carrier) > 0 {
 				s.tryParse(s.carrier)
 				s.carrier = s.carrier[:0]
@@ -112,16 +121,8 @@ func (s *Streamer) Write(p []byte) {
 
 			i := 1
 			_ = p[pl-1] // bounds check hint
-			if s.pctCount == 0 {
-				// In non-zone context, delimiters are any chars that are not valid IP chars.
-				for i < pl && charType[p[i]]&ctIPChar == 0 {
-					i++
-				}
-			} else {
-				// In zone context, delimiters are any chars that are not valid IPv6 zone chars.
-				for i < pl && charType[p[i]]&ctIPv6ZoneChar == 0 {
-					i++
-				}
+			for i < pl && ct[p[i]]&ctDelimiter == 0 {
+				i++
 			}
 
 			s.h.Handle(p[:i], netip.Addr{})
@@ -129,58 +130,54 @@ func (s *Streamer) Write(p []byte) {
 			continue
 		}
 
-		// --- Main IP-character scanning loop ---
-		// At this point, p[0] is either an IP character (digits, hex, dot, colon,
-		// percent) or we are in zone context and p[0] is a zone character.
 		dotCount := s.dotCount
 		colonCount := s.colonCount
 		pctCount := s.pctCount
 		colonRun := s.colonRun
 		maxColonRun := s.maxColonRun
 
+		// --- Main IP-character scanning loop ---
+		// At this point, p[0] is either an IP character (digits, hex, dot, colon,
+		// percent) or we are in zone context and p[0] is a zone character.
 		i := 0
 		_ = p[pl-1] // bounds check hint
 		for ; i < pl; i++ {
-			cType := charType[p[i]]
-
-			// Hex character (0-9, a-f, A-F): valid in both address and zone.
-			if cType&(ctDigit|ctHexAlpha) != 0 {
+			switch cType := ct[p[i]]; {
+			case cType&(ctDigit|ctHexAlpha) != 0:
+				// Hex character (0-9, a-f, A-F): valid in both address and zone.
 				colonRun = 0
-
+			case pctCount == 1 && cType&(ctNonHexAlpha|ctDot|ctOtherIPv6ZoneChar) != 0:
 				// Zone character when inside a zone (pctCount == 1):
 				// non-hex letters (g-z, G-Z), dots, and other zone chars (_, -, ~).
 				// dots in a zone are NOT counted toward the address dotCount.
-			} else if pctCount == 1 && cType&(ctNonHexAlpha|ctDot|ctOtherIPv6ZoneChar) != 0 {
 				colonRun = 0
-
+			case cType == ctDot:
 				// Dot character: counted as address structure.
 				// In zone context (pctCount == 1), dots are handled by the zone-char
 				// branch above instead of here, so zone dots don't inflate dotCount.
-			} else if cType == ctDot {
 				dotCount++
 				colonRun = 0
-
+			case cType == ctPct:
 				// Percent character: the IPv6 zone delimiter.
 				// Only one % is valid; tokens with pctCount >= 2 will be rejected
 				// in tryParse.
-			} else if cType == ctPct {
 				pctCount++
 				colonRun = 0
-
+			case pctCount == 0 && cType == ctColon:
 				// Colon character: only counted when outside a zone (pctCount == 0).
 				// Colons inside a zone portion fall through to the else/break below.
 				// This means zone text like "eth0:1" is NOT supported; the colon in
 				// zone portion acts as a delimiter and terminates the token.
-			} else if pctCount == 0 && cType == ctColon {
 				colonCount++
 				colonRun++
 				if colonRun > maxColonRun {
 					maxColonRun = colonRun
 				}
-			} else {
-				break
+			default:
+				goto scanDone
 			}
 		}
+	scanDone:
 
 		// Write accumulated counters back to the Streamer struct.
 		s.dotCount = dotCount
@@ -257,13 +254,10 @@ func (s *Streamer) Flush() {
 func (s *Streamer) tryParse(raw []byte) {
 	var ok bool
 	var addr netip.Addr
-
 	rawLen := len(raw)
-	firstType := charType[raw[0]]
-	lastType := charType[raw[rawLen-1]]
+	ct := &charType
 
 	switch {
-	// --- IPv4: no colons in the candidate token ---
 	case s.colonCount == 0:
 		// IPv4 requires:
 		//   - exactly 3 dots (dotCount)
@@ -272,8 +266,7 @@ func (s *Streamer) tryParse(raw []byte) {
 		//   - first and last bytes must be digits
 		if s.pctCount == 0 && s.dotCount == 3 &&
 			rawLen >= minIPv4Len && rawLen <= maxIPv4Len &&
-			(firstType&ctDigit) != 0 && (lastType&ctDigit) != 0 {
-
+			(ct[raw[0]]&ctDigit) != 0 && (ct[raw[rawLen-1]]&ctDigit) != 0 {
 			addr, ok = parseIPv4Fast(raw)
 			if parseStatsEnabled {
 				parseIPv4FastCalls++
@@ -283,7 +276,6 @@ func (s *Streamer) tryParse(raw []byte) {
 			}
 		}
 
-	// --- IPv6 without zone ID ---
 	case s.pctCount == 0:
 		// IPv6 (no zone) requires:
 		//   - 2-7 colons (the full range of possible IPv6 colon counts,
@@ -296,8 +288,7 @@ func (s *Streamer) tryParse(raw []byte) {
 		if s.colonCount >= 2 && s.colonCount <= 7 && s.maxColonRun <= 2 &&
 			(s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6Len && rawLen <= maxIPv6Len &&
-			(firstType&ctHexOrColon) != 0 && (lastType&ctHexOrColon) != 0 {
-
+			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctHexOrColon) != 0 {
 			var err error
 			addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 			ok = err == nil
@@ -309,7 +300,6 @@ func (s *Streamer) tryParse(raw []byte) {
 			}
 		}
 
-	// --- IPv6 with zone ID ---
 	case s.pctCount == 1:
 		// IPv6 with zone requires the same structural checks as plain IPv6:
 		//   - 2-7 colons, maxColonRun <= 2
@@ -320,23 +310,25 @@ func (s *Streamer) tryParse(raw []byte) {
 		if s.colonCount >= 2 && s.colonCount <= 7 && s.maxColonRun <= 2 &&
 			(s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6WithZoneLen && rawLen <= maxIPv6WithZoneLen &&
-			(firstType&ctHexOrColon) != 0 && (lastType&ctIPv6ZoneChar) != 0 {
+			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctIPv6ZoneChar) != 0 {
 
 			// Locate the '%' separator. We search starting from position minIPv6Len
 			// because the shortest valid IPv6 address before the zone is "::" (2 bytes).
 			// The offset is relative to raw[minIPv6Len:].
-			pctOffset := bytes.IndexByte(raw[minIPv6Len:], '%')
+			pctIdx := rawLen - 2
+			for pctIdx >= minIPv6Len && raw[pctIdx] != '%' {
+				pctIdx--
+			}
 
 			// Validate the '%' position:
 			//   - It must NOT be too close to the start (zone must fit within maxIPv6ZoneLen)
 			//   - It must NOT be too close to the end (at least 1 byte of zone + pctOffset offset)
 			//   - The byte before '%' must be a hex digit or colon (valid address end)
 			//   - The byte after '%' must be a valid zone character
-			if pctOffset >= rawLen-maxIPv6ZoneLen-1-minIPv6Len &&
-				pctOffset <= rawLen-2-minIPv6Len &&
-				(charType[raw[minIPv6Len+pctOffset-1]]&ctHexOrColon) != 0 &&
-				(charType[raw[minIPv6Len+pctOffset+1]]&ctIPv6ZoneChar) != 0 {
-
+			if pctIdx >= minIPv6Len &&
+				pctIdx >= rawLen-maxIPv6ZoneLen-1 &&
+				(ct[raw[pctIdx-1]]&ctHexOrColon) != 0 &&
+				(ct[raw[pctIdx+1]]&ctIPv6ZoneChar) != 0 {
 				var err error
 				addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 				ok = err == nil
@@ -351,7 +343,6 @@ func (s *Streamer) tryParse(raw []byte) {
 	}
 
 	s.h.Handle(raw, addr)
-
 	s.resetTokenState()
 }
 

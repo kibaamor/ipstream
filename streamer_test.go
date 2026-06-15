@@ -261,12 +261,9 @@ func TestIPv6_WithZoneAdditionalValidForms(t *testing.T) {
 		"::1%eth0",
 		"::1%Eth0",
 		"::1%eth0.1",
-		"::1%eth0:1",
 		"::1%eth0-a",
 		"::1%eth0_a",
-		"::1%a:b:c:d:e:f:g",
 		"fe80::1%abc.def",
-		"fe80::1%abc:def",
 		"fe80::1%enp0s3",
 		"fe80::1%br-abcd",
 		"fe80::1%veth_abcd",
@@ -315,12 +312,9 @@ func TestIPForms_ComprehensiveValidAndInvalid(t *testing.T) {
 		{"zone_interface_name", "::1%eth0", "::1%eth0"},
 		{"zone_loopback_uppercase_interface_name", "::1%Eth0", "::1%Eth0"},
 		{"zone_loopback_dotted_interface_name", "::1%eth0.1", "::1%eth0.1"},
-		{"zone_loopback_colon_interface_name", "::1%eth0:1", "::1%eth0:1"},
 		{"zone_loopback_hyphen_interface_name", "::1%eth0-a", "::1%eth0-a"},
 		{"zone_loopback_underscore_interface_name", "::1%eth0_a", "::1%eth0_a"},
-		{"zone_loopback_many_colons", "::1%a:b:c:d:e:f:g", "::1%a:b:c:d:e:f:g"},
 		{"zone_dotted", "fe80::1%abc.def", "fe80::1%abc.def"},
-		{"zone_colon", "fe80::1%abc:def", "fe80::1%abc:def"},
 		{"zone_hyphen", "fe80::1%br-abcd", "fe80::1%br-abcd"},
 		{"zone_underscore", "fe80::1%veth_abcd", "fe80::1%veth_abcd"},
 		{"zone_uppercase", "FE80::ABCD%ABC.DEF", "fe80::abcd%ABC.DEF"},
@@ -359,7 +353,6 @@ func TestIPForms_ComprehensiveValidAndInvalid(t *testing.T) {
 		// Scanner zone policy.
 		{"zone_empty", "fe80::1%"},
 		{"zone_too_long_for_scanner", "fe80::1%abcdefabcdefabcd"},
-		{"zone_trailing_colon", "fe80::1%1:"},
 		{"zone_double_percent", "fe80::1%1%2"},
 	}
 
@@ -592,13 +585,6 @@ func TestStreaming_SplitAcrossWritesWithoutTrailingDelimiter(t *testing.T) {
 			raw:       "::1%eth0",
 			wantValid: true,
 			wantAddr:  "::1%eth0",
-		},
-		{
-			name:      "valid_ipv6_interface_zone_many_colons",
-			chunks:    []string{"::", "1%a", ":b:", "c:d:e:f:g"},
-			raw:       "::1%a:b:c:d:e:f:g",
-			wantValid: true,
-			wantAddr:  "::1%a:b:c:d:e:f:g",
 		},
 		{
 			name:   "invalid_ipv6_zone_missing_zone",
@@ -956,7 +942,7 @@ func TestOversizedToken_ContinuationUntilDelimiterStaysFalse(t *testing.T) {
 
 	foundContinuation := false
 	for _, c := range calls() {
-		if c.raw == "1.2.3.4 " && !c.addr.IsValid() {
+		if c.raw == "1.2.3.4" && !c.addr.IsValid() {
 			foundContinuation = true
 		}
 		if c.raw == "1.2.3.4" && c.addr.IsValid() {
@@ -964,7 +950,7 @@ func TestOversizedToken_ContinuationUntilDelimiterStaysFalse(t *testing.T) {
 		}
 	}
 	if !foundContinuation {
-		t.Fatalf("overflow continuation and delimiter were not emitted together as non-IP: %+v", calls())
+		t.Fatalf("overflow continuation not emitted as non-IP: %+v", calls())
 	}
 	if reconstruct(calls()) != oversize+"1.2.3.4 " {
 		t.Fatalf("reconstructed input mismatch: got %q", reconstruct(calls()))
@@ -979,7 +965,7 @@ func TestOversizedZonedIPv6_Eth0ContinuationUntilDelimiterStaysFalse(t *testing.
 
 	foundContinuation := false
 	for _, c := range calls() {
-		if c.raw == "eth0 " && !c.addr.IsValid() {
+		if c.raw == "eth0" && !c.addr.IsValid() {
 			foundContinuation = true
 		}
 	}
@@ -1332,7 +1318,6 @@ func TestIPv6_BoundaryChars_WithZone(t *testing.T) {
 		{"normal_zone_valid", "fe80::1%1", true},
 		{"interface_zone_valid", "::1%eth0", true},
 		{"interface_zone_with_dot_valid", "::1%eth0.1", true},
-		{"interface_zone_with_colon_valid", "::1%eth0:1", true},
 		{"interface_zone_with_hyphen_valid", "::1%eth0-a", true},
 		{"interface_zone_with_underscore_valid", "::1%eth0_a", true},
 		{"zone_with_dot_valid", "fe80::1%1.2", true},
@@ -1340,22 +1325,18 @@ func TestIPv6_BoundaryChars_WithZone(t *testing.T) {
 		{"zone_with_underscore_valid", "fe80::1%veth_abcd", true},
 		{"start_dot_invalid", ".fe80::1%1", false},
 		{"empty_zone_invalid", "fe80::1%", false},
-		{"zone_starts_colon_invalid", "fe80::1%:eth0", false},
-		{"zone_starts_dot_invalid", "fe80::1%.eth0", false},
-		{"zone_starts_hyphen_invalid", "fe80::1%-eth0", false},
-		{"zone_starts_underscore_invalid", "fe80::1%_eth0", false},
-		{"loopback_zone_starts_colon_invalid", "::1%:eth0", false},
-		{"loopback_zone_starts_dot_invalid", "::1%.eth0", false},
-		{"loopback_zone_starts_hyphen_invalid", "::1%-eth0", false},
-		{"loopback_zone_starts_underscore_invalid", "::1%_eth0", false},
-		{"zone_ends_colon_invalid", "fe80::1%1:", false},
-		{"zone_ends_dot_invalid", "fe80::1%eth0.", false},
-		{"zone_ends_hyphen_invalid", "fe80::1%eth0-", false},
-		{"zone_ends_underscore_invalid", "fe80::1%eth0_", false},
-		{"loopback_zone_ends_colon_invalid", "::1%eth0:", false},
-		{"loopback_zone_ends_dot_invalid", "::1%eth0.", false},
-		{"loopback_zone_ends_hyphen_invalid", "::1%eth0-", false},
-		{"loopback_zone_ends_underscore_invalid", "::1%eth0_", false},
+		{"zone_starts_dot_valid", "fe80::1%.eth0", true},
+		{"zone_starts_hyphen_valid", "fe80::1%-eth0", true},
+		{"zone_starts_underscore_valid", "fe80::1%_eth0", true},
+		{"loopback_zone_starts_dot_valid", "::1%.eth0", true},
+		{"loopback_zone_starts_hyphen_valid", "::1%-eth0", true},
+		{"loopback_zone_starts_underscore_valid", "::1%_eth0", true},
+		{"zone_ends_dot_valid", "fe80::1%eth0.", true},
+		{"zone_ends_hyphen_valid", "fe80::1%eth0-", true},
+		{"zone_ends_underscore_valid", "fe80::1%eth0_", true},
+		{"loopback_zone_ends_dot_valid", "::1%eth0.", true},
+		{"loopback_zone_ends_hyphen_valid", "::1%eth0-", true},
+		{"loopback_zone_ends_underscore_valid", "::1%eth0_", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -95,20 +95,21 @@ func (s *Streamer) Write(p []byte) {
 
 			// Emit the consumed overflow bytes as a non-IP segment.
 			if i > 0 {
+				_ = p[i-1] // bounds check hint
 				s.h.Handle(p[:i], netip.Addr{})
 				p = p[i:]
 				continue
 			}
 		}
+
 		// --- Non-IP batching path: the first byte of p is a delimiter. ---
 		// The pctCount == 0 guard prevents zone chars (NonHexAlpha, OtherIPv6ZoneChar)
 		// from being treated as delimiters when inside a zone token.
 		// Those chars pass through to the main scanning loop instead.
-		ctDelimiter := byte(0)
-		if s.pctCount == 0 {
-			// In non-zone context, delimiters are any chars that are not valid IP chars.
-			ctDelimiter = ctIPChar
-		} else {
+
+		// In non-zone context, delimiters are any chars that are not valid IP chars.
+		ctDelimiter := ctIPChar
+		if s.pctCount > 0 {
 			// In zone context, delimiters are any chars that are not valid IPv6 zone chars.
 			ctDelimiter = ctIPv6ZoneChar
 		}
@@ -125,6 +126,7 @@ func (s *Streamer) Write(p []byte) {
 				i++
 			}
 
+			_ = p[i-1] // bounds check hint
 			s.h.Handle(p[:i], netip.Addr{})
 			p = p[i:]
 			continue

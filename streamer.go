@@ -293,7 +293,7 @@ func (s *Streamer) tryParse(raw []byte) {
 			(s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6Len && rawLen <= maxIPv6Len &&
 			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctHexOrColon) != 0 &&
-			!(s.dotCount == 0 && s.maxColonRun == 1 && s.colonCount != 7) {
+			(s.dotCount != 0 || s.maxColonRun != 1 || s.colonCount == 7) {
 			var err error
 			addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 			ok = err == nil
@@ -318,7 +318,7 @@ func (s *Streamer) tryParse(raw []byte) {
 			(s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6WithZoneLen && rawLen <= maxIPv6WithZoneLen &&
 			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctIPv6ZoneChar) != 0 &&
-			!(s.dotCount == 0 && s.maxColonRun == 1 && s.colonCount != 7) {
+			(s.dotCount != 0 || s.maxColonRun != 1 || s.colonCount == 7) {
 
 			// Locate the '%' separator. We search starting from position minIPv6Len
 			// because the shortest valid IPv6 address before the zone is "::" (2 bytes).

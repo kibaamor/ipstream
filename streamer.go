@@ -287,10 +287,13 @@ func (s *Streamer) tryParse(raw []byte) {
 		//   - length between minIPv6Len (2) and maxIPv6Len (45)
 		//   - first byte must be hex-digit or colon (not dot or %)
 		//   - last byte must be hex-digit or colon (not dot or %)
+		//   - without dots, all-single-colon tokens (maxColonRun==1) with !=7 colons
+		//     are never valid IPv6 (e.g. time-format "00:00:00")
 		if s.colonCount >= 2 && s.colonCount <= 7 && s.maxColonRun <= 2 &&
 			(s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6Len && rawLen <= maxIPv6Len &&
-			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctHexOrColon) != 0 {
+			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctHexOrColon) != 0 &&
+			!(s.dotCount == 0 && s.maxColonRun == 1 && s.colonCount != 7) {
 			var err error
 			addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 			ok = err == nil
@@ -309,10 +312,13 @@ func (s *Streamer) tryParse(raw []byte) {
 		//   - first byte must be hex-digit or colon
 		//   - lastType must match ctIPv6ZoneChar (hex, non-hex-alpha, dot, or
 		//     other zone char like _, -, ~)
+		//   - without dots, all-single-colon tokens (maxColonRun==1) with !=7 colons
+		//     are never valid IPv6 (e.g. time-format "00:00:00")
 		if s.colonCount >= 2 && s.colonCount <= 7 && s.maxColonRun <= 2 &&
 			(s.dotCount == 0 || s.dotCount == 3) &&
 			rawLen >= minIPv6WithZoneLen && rawLen <= maxIPv6WithZoneLen &&
-			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctIPv6ZoneChar) != 0 {
+			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctIPv6ZoneChar) != 0 &&
+			!(s.dotCount == 0 && s.maxColonRun == 1 && s.colonCount != 7) {
 
 			// Locate the '%' separator. We search starting from position minIPv6Len
 			// because the shortest valid IPv6 address before the zone is "::" (2 bytes).

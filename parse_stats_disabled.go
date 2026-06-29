@@ -2,12 +2,6 @@
 
 package ipstream
 
-const parseStatsEnabled = false
+func recordParseIPv4Fast(_ bool) {}
 
-//nolint:unused // Referenced only from compile-time-disabled stats branches.
-var (
-	parseIPv4FastCalls uint64
-	parseIPv4FastOK    uint64
-	parseAddrCalls     uint64
-	parseAddrOK        uint64
-)
+func recordParseAddr(_ bool) {}

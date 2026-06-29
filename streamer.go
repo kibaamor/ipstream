@@ -270,12 +270,7 @@ func (s *Streamer) tryParse(raw []byte) {
 			rawLen >= minIPv4Len && rawLen <= maxIPv4Len &&
 			(ct[raw[0]]&ctDigit) != 0 && (ct[raw[rawLen-1]]&ctDigit) != 0 {
 			addr, ok = parseIPv4Fast(raw)
-			if parseStatsEnabled {
-				parseIPv4FastCalls++
-				if ok {
-					parseIPv4FastOK++
-				}
-			}
+			recordParseIPv4Fast(ok)
 		}
 
 	case s.pctCount == 0:
@@ -297,12 +292,7 @@ func (s *Streamer) tryParse(raw []byte) {
 			var err error
 			addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 			ok = err == nil
-			if parseStatsEnabled {
-				parseAddrCalls++
-				if ok {
-					parseAddrOK++
-				}
-			}
+			recordParseAddr(ok)
 		}
 
 	case s.pctCount == 1:
@@ -340,12 +330,7 @@ func (s *Streamer) tryParse(raw []byte) {
 				var err error
 				addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
 				ok = err == nil
-				if parseStatsEnabled {
-					parseAddrCalls++
-					if ok {
-						parseAddrOK++
-					}
-				}
+				recordParseAddr(ok)
 			}
 		}
 	}

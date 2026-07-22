@@ -1,6 +1,6 @@
 {
   "gopls": {
-    "buildFlags": ["-tags=ipstreamtests,ipstreamstats"]
+    "buildFlags": ["-tags=ipstreamstats"]
   },
-  "go.testTags": "ipstreamtests,ipstreamstats"
+  "go.testTags": "ipstreamstats"
 }

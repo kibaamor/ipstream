@@ -1,5 +1,3 @@
-//go:build ipstreamtests
-
 package ipstream
 
 import (

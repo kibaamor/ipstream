@@ -1,4 +1,4 @@
-//go:build ipstreamtests && ipstreamstats
+//go:build ipstreamstats
 
 package ipstream
 

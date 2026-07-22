@@ -1,5 +1,3 @@
-//go:build ipstreamtests
-
 package ipstream_test
 
 import (
@@ -1346,7 +1344,7 @@ func TestIPv6_BoundaryChars_WithZone(t *testing.T) {
 }
 
 func ExampleNewStreamer() {
-	s := ipstream.NewStreamer(ipstream.HandleFunc(func(raw []byte, addr netip.Addr) {
+	s := ipstream.NewStreamer(ipstream.HandleFunc(func(_ []byte, addr netip.Addr) {
 		if addr.IsValid() {
 			fmt.Println(addr)
 		}
@@ -1359,7 +1357,7 @@ func ExampleNewStreamer() {
 }
 
 func ExampleStreamer_Writer() {
-	s := ipstream.NewStreamer(ipstream.HandleFunc(func(raw []byte, addr netip.Addr) {
+	s := ipstream.NewStreamer(ipstream.HandleFunc(func(_ []byte, addr netip.Addr) {
 		if addr.IsValid() {
 			fmt.Println(addr)
 		}

@@ -1,5 +1,3 @@
-//go:build ipstreamtests
-
 package main
 
 import (
@@ -119,6 +117,24 @@ func TestFilterIPs_ReportsFlushWriteError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "write output: boom") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestFilterIPs_StopsReadingAfterWriteError(t *testing.T) {
+	const numChunks = 20
+	chunks := make([]string, numChunks)
+	for i := range chunks {
+		chunks[i] = "1.2.3.4 "
+	}
+	reader := &chunkReader{chunks: chunks}
+	writer := &errorWriter{err: errors.New("boom")}
+
+	err := filterIPs(reader, writer)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if reader.reads == numChunks {
+		t.Fatalf("filterIPs read all %d chunks after write error; expected to stop early", reader.reads)
 	}
 }
 

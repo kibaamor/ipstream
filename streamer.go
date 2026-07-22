@@ -265,7 +265,7 @@ func (s *Streamer) Flush() {
 }
 
 // Writer returns an io.Writer that delegates to the Streamer's Write method.
-// The returned writer always returns len(p), nil on success.
+// The returned writer always returns len(p), nil.
 func (s *Streamer) Writer() io.Writer {
 	return writer{s: s}
 }

@@ -27,14 +27,9 @@ Extract the archive and place `ipstream` in your `PATH`.
 
 #### Package managers
 
-Release builds are configured for Homebrew, Scoop, WinGet, Snapcraft, NUR, Linux distro packages (`deb`, `rpm`, `apk`, `ipk`, Arch Linux), and GHCR container images.
+Release builds are available as GitHub Release archives and GHCR container images.
 
 ```bash
-brew install kibaamor/tap/ipstream
-scoop bucket add kibaamor https://github.com/kibaamor/scoop-bucket
-scoop install ipstream
-winget install KibaAmor.ipstream
-snap install ipstream
 docker run --rm -i ghcr.io/kibaamor/ipstream:latest < input.log
 ```
 

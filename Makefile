@@ -4,10 +4,7 @@ VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X main.version=$(VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.buildDate=$(BUILD_DATE)
-TEST_TAGS ?= ipstreamtests
-TEST_BUILD_FLAGS ?= -tags='$(TEST_TAGS)'
-PARSE_STATS_TAGS ?= $(TEST_TAGS) ipstreamstats
-PARSE_STATS_BUILD_FLAGS ?= $(filter-out -tags=%,$(TEST_BUILD_FLAGS)) -tags='$(PARSE_STATS_TAGS)'
+STATS_BUILD_FLAGS ?= -tags='ipstreamstats'
 BENCH_TIME ?= 3s
 PARSE_STATS_BENCH ?= ^BenchmarkWrite_
 FUZZ_TIME ?= 10s
@@ -56,24 +53,24 @@ build:
 	go build -ldflags "$(LDFLAGS)" -o $(IPSTREAM_BIN) ./cmd/ipstream
 
 test:
-	go test $(TEST_BUILD_FLAGS) ./...
+	go test ./...
 
 bench:
-	go test $(TEST_BUILD_FLAGS) -run '^$$' -bench . -benchmem -benchtime=$(BENCH_TIME) ./...
+	go test -run '^$$' -bench . -benchmem -benchtime=$(BENCH_TIME) ./...
 
 bench-parse-stats:
-	go test $(PARSE_STATS_BUILD_FLAGS) -run '^$$' -bench '$(PARSE_STATS_BENCH)' -benchmem -benchtime=$(BENCH_TIME) .
+	go test $(STATS_BUILD_FLAGS) -run '^$$' -bench '$(PARSE_STATS_BENCH)' -benchmem -benchtime=$(BENCH_TIME) .
 
 fuzz:
-	go test $(TEST_BUILD_FLAGS) -run='^$$' -fuzz=FuzzParseIPv4Fast -fuzztime=$(FUZZ_TIME) .
-	go test $(TEST_BUILD_FLAGS) -run='^$$' -fuzz=FuzzStreamerWrite -fuzztime=$(FUZZ_TIME) .
+	go test -run='^$$' -fuzz=FuzzParseIPv4Fast -fuzztime=$(FUZZ_TIME) .
+	go test -run='^$$' -fuzz=FuzzStreamerWrite -fuzztime=$(FUZZ_TIME) .
 
 bce:
-	go test $(TEST_BUILD_FLAGS) -gcflags='all=-d=ssa/check_bce/debug=1' ./... 2>&1 >/dev/null | grep -E '$(BCE_FILTER)' || true
+	go test -gcflags='all=-d=ssa/check_bce/debug=1' ./... 2>&1 >/dev/null | grep -E '$(BCE_FILTER)' || true
 
 coverage:
 	mkdir -p $(COVERAGE_OUT_DIR)
-	go test $(PARSE_STATS_BUILD_FLAGS) -covermode=atomic -coverprofile $(COVERAGE_PROFILE) ./...
+	go test $(STATS_BUILD_FLAGS) -covermode=atomic -coverprofile $(COVERAGE_PROFILE) ./...
 	go tool cover -func $(COVERAGE_PROFILE) | tee $(COVERAGE_FUNC)
 	go tool cover -html $(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
 	@echo "Generated:"
@@ -83,7 +80,7 @@ coverage:
 
 profile-cpu:
 	mkdir -p $(PROFILE_OUT_DIR)
-	bash -o pipefail -c "go test $(TEST_BUILD_FLAGS) -run '^$$' -bench '$(PROFILE_BENCH)' -benchmem -benchtime=$(BENCH_TIME) -cpuprofile $(PROFILE_PPROF) $(PROFILE_PKG) | tee $(PROFILE_BENCH_OUTPUT)"
+	bash -o pipefail -c "go test -run '^$$' -bench '$(PROFILE_BENCH)' -benchmem -benchtime=$(BENCH_TIME) -cpuprofile $(PROFILE_PPROF) $(PROFILE_PKG) | tee $(PROFILE_BENCH_OUTPUT)"
 
 profile-cpu-reports: profile-cpu
 	go tool pprof -top $(PROFILE_PPROF) > $(PROFILE_TOP)

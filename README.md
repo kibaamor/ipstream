@@ -1,4 +1,6 @@
 # ipstream
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_shield)
+
 
 `ipstream` extracts IPv4 and IPv6 addresses from byte streams.
 
@@ -117,3 +119,6 @@ When reporting a bug, please include the input that reproduces it, the expected 
 ## License
 
 Apache License 2.0. See [LICENSE](./LICENSE).
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_large)

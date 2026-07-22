@@ -1,14 +1,11 @@
 //go:build ipstreamtests
-// +build ipstreamtests
 
-package ipstream_test
+package ipstream
 
 import (
 	"net/netip"
 	"strings"
 	"testing"
-
-	"github.com/kibaamor/ipstream"
 )
 
 // benchSink prevents Handler calls from being optimised away.
@@ -27,7 +24,7 @@ func benchmarkWrite(b *testing.B, input []byte) {
 	resetBenchParseStats()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
+		s := NewStreamer(HandleFunc(benchHandle))
 		s.Write(input)
 		s.Flush()
 	}
@@ -41,7 +38,7 @@ func benchmarkWriteChunks(b *testing.B, data []byte, chunks [][]byte) {
 	resetBenchParseStats()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
+		s := NewStreamer(HandleFunc(benchHandle))
 		for _, chunk := range chunks {
 			s.Write(chunk)
 		}
@@ -70,7 +67,7 @@ func benchmarkWriteByteByByte(b *testing.B, data []byte) {
 	resetBenchParseStats()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
+		s := NewStreamer(HandleFunc(benchHandle))
 		for _, c := range data {
 			buf[0] = c
 			s.Write(buf)
@@ -87,7 +84,7 @@ func benchmarkWriteSplitAt(b *testing.B, data []byte, split int) {
 	resetBenchParseStats()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
+		s := NewStreamer(HandleFunc(benchHandle))
 		s.Write(data[:split])
 		s.Write(data[split:])
 		s.Flush()

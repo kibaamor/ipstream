@@ -1,7 +1,6 @@
 //go:build ipstreamtests && !ipstreamstats
-// +build ipstreamtests,!ipstreamstats
 
-package ipstream_test
+package ipstream
 
 import "testing"
 

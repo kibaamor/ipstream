@@ -4,8 +4,8 @@ package ipstream
 
 import "sync/atomic"
 
-// ParseStats reports parser call and success counters.
-type ParseStats struct {
+// parseStats reports parser call and success counters.
+type parseStats struct {
 	IPv4FastCalls  uint64
 	IPv4FastOK     uint64
 	ParseAddrCalls uint64
@@ -19,17 +19,17 @@ var (
 	parseAddrOK        atomic.Uint64
 )
 
-// ResetParseStats clears parser counters.
-func ResetParseStats() {
+// resetParseStats clears parser counters.
+func resetParseStats() {
 	parseIPv4FastCalls.Store(0)
 	parseIPv4FastOK.Store(0)
 	parseAddrCalls.Store(0)
 	parseAddrOK.Store(0)
 }
 
-// ParseStatsSnapshot returns the current parser counters.
-func ParseStatsSnapshot() ParseStats {
-	return ParseStats{
+// parseStatsSnapshot returns the current parser counters.
+func parseStatsSnapshot() parseStats {
+	return parseStats{
 		IPv4FastCalls:  parseIPv4FastCalls.Load(),
 		IPv4FastOK:     parseIPv4FastOK.Load(),
 		ParseAddrCalls: parseAddrCalls.Load(),

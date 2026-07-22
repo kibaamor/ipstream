@@ -1,4 +1,4 @@
-.PHONY: build test vet bench bench-parse-stats bce coverage profile-cpu profile-cpu-reports clean lint lint-fix
+.PHONY: build test vet bench bench-parse-stats fuzz bce coverage profile-cpu profile-cpu-reports clean lint lint-fix check
 
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -10,6 +10,7 @@ PARSE_STATS_TAGS ?= $(TEST_TAGS) ipstreamstats
 PARSE_STATS_BUILD_FLAGS ?= $(filter-out -tags=%,$(TEST_BUILD_FLAGS)) -tags='$(PARSE_STATS_TAGS)'
 BENCH_TIME ?= 3s
 PARSE_STATS_BENCH ?= ^BenchmarkWrite_
+FUZZ_TIME ?= 10s
 BCE_FILTER ?= ^\./streamer.*\.go:
 COVERAGE_OUT_DIR ?= .coverage
 COVERAGE_PROFILE ?= $(COVERAGE_OUT_DIR)/coverage.out
@@ -33,6 +34,23 @@ PROFILE_BENCHSTAT := $(PROFILE_OUT_PREFIX)_benchstat.txt
 PROFILE_ALL_FUNCS_LINES := $(PROFILE_OUT_PREFIX)_allfuncs_list.txt
 PROFILE_LIST_REGEX ?= github.com/kibaamor/ipstream\..*
 
+check: clean vet lint build test fuzz
+	@echo "All checks passed."
+
+clean:
+	go clean -testcache
+	rm -f $(IPSTREAM_BIN)
+	rm -rf $(COVERAGE_OUT_DIR)
+
+vet:
+	go vet ./...
+
+lint:
+	golangci-lint run ./...
+
+lint-fix:
+	golangci-lint run --fix ./...
+
 build:
 	go build ./...
 	go build -ldflags "$(LDFLAGS)" -o $(IPSTREAM_BIN) ./cmd/ipstream
@@ -40,14 +58,15 @@ build:
 test:
 	go test $(TEST_BUILD_FLAGS) ./...
 
-vet:
-	go vet ./...
-
 bench:
 	go test $(TEST_BUILD_FLAGS) -run '^$$' -bench . -benchmem -benchtime=$(BENCH_TIME) ./...
 
 bench-parse-stats:
 	go test $(PARSE_STATS_BUILD_FLAGS) -run '^$$' -bench '$(PARSE_STATS_BENCH)' -benchmem -benchtime=$(BENCH_TIME) .
+
+fuzz:
+	go test $(TEST_BUILD_FLAGS) -run='^$$' -fuzz=FuzzParseIPv4Fast -fuzztime=$(FUZZ_TIME) .
+	go test $(TEST_BUILD_FLAGS) -run='^$$' -fuzz=FuzzStreamerWrite -fuzztime=$(FUZZ_TIME) .
 
 bce:
 	go test $(TEST_BUILD_FLAGS) -gcflags='all=-d=ssa/check_bce/debug=1' ./... 2>&1 >/dev/null | grep -E '$(BCE_FILTER)' || true
@@ -91,14 +110,3 @@ profile-cpu-reports: profile-cpu
 	@echo "  $(PROFILE_SVG)"
 	@echo "  $(PROFILE_ALL_FUNCS_LINES)"
 	@if [ -f "$(PROFILE_BENCHSTAT)" ]; then echo "  $(PROFILE_BENCHSTAT)"; fi
-
-clean:
-	go clean -testcache
-	rm -f $(IPSTREAM_BIN)
-	rm -rf $(COVERAGE_OUT_DIR)
-
-lint:
-	golangci-lint run ./...
-
-lint-fix:
-	golangci-lint run --fix ./...

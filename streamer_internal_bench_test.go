@@ -1,5 +1,4 @@
 //go:build ipstreamtests
-// +build ipstreamtests
 
 package ipstream
 

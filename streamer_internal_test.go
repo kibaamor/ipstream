@@ -1,5 +1,4 @@
 //go:build ipstreamtests
-// +build ipstreamtests
 
 package ipstream
 
@@ -7,6 +6,37 @@ import (
 	"net/netip"
 	"testing"
 )
+
+func FuzzParseIPv4Fast(f *testing.F) {
+	f.Add([]byte("192.168.1.1"))
+	f.Add([]byte("0.0.0.0"))
+	f.Add([]byte("255.255.255.255"))
+	f.Add([]byte("1.2.3.4"))
+	f.Add([]byte(""))
+	f.Add([]byte("not.an.ip"))
+	f.Add([]byte("256.256.256.256"))
+	f.Add([]byte("1.2.3.4.5"))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		addr, _ := parseIPv4Fast(b)
+		_ = addr
+	})
+}
+
+func FuzzStreamerWrite(f *testing.F) {
+	f.Add([]byte("192.168.1.1"))
+	f.Add([]byte("::1"))
+	f.Add([]byte("no ip here"))
+	f.Add([]byte(""))
+	f.Add([]byte("192.168.1.1 ::1 10.0.0.1"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		s := NewStreamer(HandleFunc(func(raw []byte, addr netip.Addr) {
+			_ = raw
+			_ = addr
+		}))
+		s.Write(data)
+		s.Flush()
+	})
+}
 
 func TestParseIPv4Fast_Valid(t *testing.T) {
 	tests := []struct {

@@ -316,7 +316,7 @@ func (s *Streamer) tryParse(raw []byte) {
 			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctHexOrColon) != 0 &&
 			(s.dotCount != 0 || s.maxColonRun != 1 || s.colonCount == 7) {
 			var err error
-			addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
+			addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec // raw is a caller-provided byte slice, length validated above
 			ok = err == nil
 			recordParseAddr(ok)
 		}
@@ -336,17 +336,16 @@ func (s *Streamer) tryParse(raw []byte) {
 			(ct[raw[0]]&ctHexOrColon) != 0 && (ct[raw[rawLen-1]]&ctIPv6ZoneChar) != 0 &&
 			(s.dotCount != 0 || s.maxColonRun != 1 || s.colonCount == 7) {
 
-			// Locate the '%' separator. We search starting from position minIPv6Len
-			// because the shortest valid IPv6 address before the zone is "::" (2 bytes).
-			// The offset is relative to raw[minIPv6Len:].
+			// Locate the '%' separator. Search backward from rawLen-2 down to
+			// minIPv6Len because zone length at least 1 byte.
 			pctIdx := rawLen - 2
 			for pctIdx >= minIPv6Len && raw[pctIdx] != '%' {
 				pctIdx--
 			}
 
 			// Validate the '%' position:
-			//   - It must NOT be too close to the start (zone must fit within maxIPv6ZoneLen)
-			//   - It must NOT be too close to the end (at least 1 byte of zone + pctOffset offset)
+			//   - It must be after the IPv6 address
+			//   - Zone length must be at most maxIPv6ZoneLen
 			//   - The byte before '%' must be a hex digit or colon (valid address end)
 			//   - The byte after '%' must be a valid zone character
 			if pctIdx >= minIPv6Len &&
@@ -354,7 +353,7 @@ func (s *Streamer) tryParse(raw []byte) {
 				(ct[raw[pctIdx-1]]&ctHexOrColon) != 0 &&
 				(ct[raw[pctIdx+1]]&ctIPv6ZoneChar) != 0 {
 				var err error
-				addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec
+				addr, err = netip.ParseAddr(unsafe.String(&raw[0], rawLen)) //nolint:gosec // raw is a caller-provided byte slice, length validated above
 				ok = err == nil
 				recordParseAddr(ok)
 			}
@@ -377,7 +376,7 @@ func (s *Streamer) tryParse(raw []byte) {
 func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 	n := len(b)
 
-	if n < 7 || n > 15 {
+	if n < minIPv4Len || n > maxIPv4Len {
 		return netip.Addr{}, false
 	}
 
@@ -393,7 +392,7 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 		v := int(d)
 		i++
 
-		if i < n && b[i] != '.' {
+		if b[i] != '.' {
 			d = b[i] - '0'
 			if d > 9 || v == 0 {
 				return netip.Addr{}, false
@@ -401,7 +400,7 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 			v = v*10 + int(d)
 			i++
 
-			if i < n && b[i] != '.' {
+			if b[i] != '.' {
 				d = b[i] - '0'
 				if d > 9 {
 					return netip.Addr{}, false
@@ -412,13 +411,13 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 				}
 				i++
 
-				if i < n && b[i] != '.' {
+				if b[i] != '.' {
 					return netip.Addr{}, false
 				}
 			}
 		}
 
-		a[0] = byte(v) //nolint:gosec
+		a[0] = byte(v) //nolint:gosec // v is range-checked to 0-255 above
 		i++
 	}
 
@@ -431,7 +430,7 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 		v := int(d)
 		i++
 
-		if i < n && b[i] != '.' {
+		if b[i] != '.' {
 			d = b[i] - '0'
 			if d > 9 || v == 0 {
 				return netip.Addr{}, false
@@ -439,7 +438,7 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 			v = v*10 + int(d)
 			i++
 
-			if i < n && b[i] != '.' {
+			if b[i] != '.' {
 				d = b[i] - '0'
 				if d > 9 {
 					return netip.Addr{}, false
@@ -450,21 +449,21 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 				}
 				i++
 
-				if i < n && b[i] != '.' {
+				if i >= n || b[i] != '.' {
 					return netip.Addr{}, false
 				}
 			}
 		}
 
-		if i >= n {
-			return netip.Addr{}, false
-		}
-		a[1] = byte(v) //nolint:gosec
+		a[1] = byte(v) //nolint:gosec // v is range-checked to 0-255 above
 		i++
 	}
 
 	// octet 2
 	{
+		if i >= n {
+			return netip.Addr{}, false
+		}
 		d := b[i] - '0'
 		if d > 9 {
 			return netip.Addr{}, false
@@ -491,21 +490,21 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 				}
 				i++
 
-				if i < n && b[i] != '.' {
+				if i >= n || b[i] != '.' {
 					return netip.Addr{}, false
 				}
 			}
 		}
 
-		if i >= n {
-			return netip.Addr{}, false
-		}
-		a[2] = byte(v) //nolint:gosec
+		a[2] = byte(v) //nolint:gosec // v is range-checked to 0-255 above
 		i++
 	}
 
 	// octet 3
 	{
+		if i >= n {
+			return netip.Addr{}, false
+		}
 		d := b[i] - '0'
 		if d > 9 {
 			return netip.Addr{}, false
@@ -531,17 +530,13 @@ func parseIPv4Fast(b []byte) (netip.Addr, bool) {
 					return netip.Addr{}, false
 				}
 				i++
-
-				if i < n && b[i] != '.' {
-					return netip.Addr{}, false
-				}
 			}
 		}
 
 		if i != n {
 			return netip.Addr{}, false
 		}
-		a[3] = byte(v) //nolint:gosec
+		a[3] = byte(v) //nolint:gosec // v is range-checked to 0-255 above
 	}
 
 	return netip.AddrFrom4(a), true

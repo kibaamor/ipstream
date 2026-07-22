@@ -1,17 +1,14 @@
 //go:build ipstreamtests && ipstreamstats
-// +build ipstreamtests,ipstreamstats
 
-package ipstream_test
+package ipstream
 
 import (
 	"fmt"
 	"os"
 	"testing"
-
-	"github.com/kibaamor/ipstream"
 )
 
-var overallBenchParseStats ipstream.ParseStats
+var overallBenchParseStats parseStats
 
 func TestMain(m *testing.M) {
 	code := m.Run()
@@ -30,7 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 func resetBenchParseStats() {
-	ipstream.ResetParseStats()
+	resetParseStats()
 }
 
 func reportBenchParseStats(b *testing.B, iterations int) {
@@ -39,7 +36,7 @@ func reportBenchParseStats(b *testing.B, iterations int) {
 		return
 	}
 
-	stats := ipstream.ParseStatsSnapshot()
+	stats := parseStatsSnapshot()
 	overallBenchParseStats.IPv4FastCalls += stats.IPv4FastCalls
 	overallBenchParseStats.IPv4FastOK += stats.IPv4FastOK
 	overallBenchParseStats.ParseAddrCalls += stats.ParseAddrCalls

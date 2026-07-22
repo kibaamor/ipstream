@@ -1,4 +1,6 @@
 # ipstream
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_shield)
+
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_shield&issueType=license)
 [![Codecov](https://codecov.io/gh/kibaamor/ipstream/branch/main/graph/badge.svg?token=tNKcOjlxLo)](https://codecov.io/gh/kibaamor/ipstream)

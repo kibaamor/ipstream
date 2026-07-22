@@ -80,20 +80,8 @@ func filterIPs(in io.Reader, out io.Writer) error {
 	streamer := ipstream.NewStreamer(&emitter)
 
 	buf := make([]byte, 32*1024)
-	for {
-		n, err := in.Read(buf)
-		if n > 0 {
-			streamer.Write(buf[:n])
-			if err := emitter.Err(); err != nil {
-				return err
-			}
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("read input: %w", err)
-		}
+	if _, err := io.CopyBuffer(streamer.Writer(), in, buf); err != nil {
+		return fmt.Errorf("read input: %w", err)
 	}
 
 	streamer.Flush()

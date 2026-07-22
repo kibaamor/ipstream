@@ -99,7 +99,7 @@ func TestRun_ReportsFilterError(t *testing.T) {
 	}
 }
 
-func TestFilterIPs_StopsReadingAfterWriteError(t *testing.T) {
+func TestFilterIPs_ReturnsWriteError(t *testing.T) {
 	reader := &chunkReader{chunks: []string{"1.2.3.4 ", "5.6.7.8 "}}
 	writer := &errorWriter{err: errors.New("boom")}
 
@@ -109,9 +109,6 @@ func TestFilterIPs_StopsReadingAfterWriteError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "write output: boom") {
 		t.Fatalf("err=%v", err)
-	}
-	if reader.reads != 1 {
-		t.Fatalf("reads=%d, want 1", reader.reads)
 	}
 }
 

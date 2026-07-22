@@ -14,3 +14,9 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Codecov
+codecov
+codecov.SHA256SUM
+codecov.SHA256SUM.sig
+coverage.txt

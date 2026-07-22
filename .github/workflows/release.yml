@@ -29,9 +29,6 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Test
-        run: go clean -testcache && go test -tags=ipstreamtests ./...
-
       - name: Vet
         run: go vet ./...
 
@@ -39,6 +36,15 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+
+      - name: Test
+        run: go clean -testcache && go test -tags='ipstreamtests ipstreamstats' -covermode=atomic -coverprofile coverage.out ./...
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Log in to GHCR
         uses: docker/login-action@v4

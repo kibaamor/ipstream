@@ -97,6 +97,8 @@ func TestParseIPv4Fast_Invalid(t *testing.T) {
 		{name: "too_many_digits_last_octet", ip: "1.1.1.1234"},
 		{name: "negative_like", ip: "1.2.3.-1"},
 		{name: "too_many_digits_in_octet", ip: "1111.1.1.1"},
+		{name: "truncated_before_octet2", ip: "255.255."},
+		{name: "truncated_before_octet3", ip: "255.255.255."},
 	}
 
 	for _, tt := range tests {

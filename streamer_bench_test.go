@@ -26,7 +26,7 @@ func benchmarkWrite(b *testing.B, input []byte) {
 	b.ReportAllocs()
 	resetBenchParseStats()
 	b.ResetTimer()
-	for b.Loop() {
+	for i := 0; i < b.N; i++ {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
 		s.Write(input)
 		s.Flush()
@@ -40,7 +40,7 @@ func benchmarkWriteChunks(b *testing.B, data []byte, chunks [][]byte) {
 	b.ReportAllocs()
 	resetBenchParseStats()
 	b.ResetTimer()
-	for b.Loop() {
+	for i := 0; i < b.N; i++ {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
 		for _, chunk := range chunks {
 			s.Write(chunk)
@@ -54,7 +54,10 @@ func benchmarkWriteChunks(b *testing.B, data []byte, chunks [][]byte) {
 func fixedChunks(data []byte, size int) [][]byte {
 	chunks := make([][]byte, 0, len(data)/size+1)
 	for off := 0; off < len(data); off += size {
-		end := min(off+size, len(data))
+		end := off + size
+		if end > len(data) {
+			end = len(data)
+		}
 		chunks = append(chunks, data[off:end])
 	}
 	return chunks
@@ -66,7 +69,7 @@ func benchmarkWriteByteByByte(b *testing.B, data []byte) {
 	b.ReportAllocs()
 	resetBenchParseStats()
 	b.ResetTimer()
-	for b.Loop() {
+	for i := 0; i < b.N; i++ {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
 		for _, c := range data {
 			buf[0] = c
@@ -83,7 +86,7 @@ func benchmarkWriteSplitAt(b *testing.B, data []byte, split int) {
 	b.ReportAllocs()
 	resetBenchParseStats()
 	b.ResetTimer()
-	for b.Loop() {
+	for i := 0; i < b.N; i++ {
 		s := ipstream.NewStreamer(ipstream.HandleFunc(benchHandle))
 		s.Write(data[:split])
 		s.Write(data[split:])

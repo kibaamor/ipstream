@@ -21,7 +21,7 @@ const (
 var charType [256]byte
 
 func init() {
-	for i := range 256 {
+	for i := 0; i < 256; i++ {
 		c := byte(i)
 		switch {
 		case c >= '0' && c <= '9':

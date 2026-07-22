@@ -1,3 +1,3 @@
 module github.com/kibaamor/ipstream
 
-go 1.26.2
+go 1.20

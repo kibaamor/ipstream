@@ -4,6 +4,7 @@
 package ipstream_test
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 	"testing"
@@ -1343,4 +1344,31 @@ func TestIPv6_BoundaryChars_WithZone(t *testing.T) {
 			assertTokenValid(t, tt.token, tt.valid)
 		})
 	}
+}
+
+func ExampleNewStreamer() {
+	s := ipstream.NewStreamer(ipstream.HandleFunc(func(raw []byte, addr netip.Addr) {
+		if addr.IsValid() {
+			fmt.Println(addr)
+		}
+	}))
+	s.Write([]byte("client=192.168.1.1 gateway=2001:db8::1"))
+	s.Flush()
+	// Output:
+	// 192.168.1.1
+	// 2001:db8::1
+}
+
+func ExampleStreamer_Writer() {
+	s := ipstream.NewStreamer(ipstream.HandleFunc(func(raw []byte, addr netip.Addr) {
+		if addr.IsValid() {
+			fmt.Println(addr)
+		}
+	}))
+	w := s.Writer()
+	_, _ = w.Write([]byte("client=10.0.0.1 peer=::1"))
+	s.Flush()
+	// Output:
+	// 10.0.0.1
+	// ::1
 }

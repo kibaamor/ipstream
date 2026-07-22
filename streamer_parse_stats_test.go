@@ -22,7 +22,7 @@ func TestParseStats_ConcurrentStreamers(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
-	for range goroutines {
+	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
 			s := ipstream.NewStreamer(ipstream.HandleFunc(func([]byte, netip.Addr) {}))

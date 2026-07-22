@@ -24,7 +24,7 @@ func BenchmarkParseIPv4Fast_Valid(b *testing.B) {
 			b.SetBytes(int64(len(tt.ip)))
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
+			for i := 0; i < b.N; i++ {
 				got, ok := parseIPv4Fast(tt.ip)
 				if !ok || got != tt.want {
 					b.Fatalf("parseIPv4Fast(%q) = (%v, %v), want (%v, true)", tt.ip, got, ok, tt.want)
@@ -54,7 +54,7 @@ func BenchmarkParseIPv4Fast_Invalid(b *testing.B) {
 			b.SetBytes(int64(len(tt.ip)))
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
+			for i := 0; i < b.N; i++ {
 				if got, ok := parseIPv4Fast(tt.ip); ok {
 					b.Fatalf("parseIPv4Fast(%q) = (%v, true), want invalid", tt.ip, got)
 				}
@@ -79,7 +79,7 @@ func BenchmarkParseIPv4Fast_RejectStages(b *testing.B) {
 			b.SetBytes(int64(len(tt.ip)))
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
+			for i := 0; i < b.N; i++ {
 				if got, ok := parseIPv4Fast(tt.ip); ok {
 					b.Fatalf("parseIPv4Fast(%q) = (%v, true), want invalid", tt.ip, got)
 				}

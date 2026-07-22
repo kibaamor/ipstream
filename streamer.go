@@ -1,7 +1,15 @@
 // Package ipstream scans byte streams and emits IP address and non-IP segments.
+//
+// The public API is stable: backward-incompatible changes will only be made
+// in a new major version (v2+).
+//
+// # Examples
+//
+// See [ExampleNewStreamer] for a basic usage example.
 package ipstream
 
 import (
+	"io"
 	"net/netip"
 	"unsafe"
 )
@@ -43,6 +51,9 @@ func (f HandleFunc) Handle(raw []byte, addr netip.Addr) {
 //
 // After the final Write, call Flush to emit any trailing partial token.
 // The Streamer can continue receiving Write calls after Flush.
+//
+// Streamer is not safe for concurrent use. Each goroutine must use its own
+// Streamer instance or provide external synchronization.
 type Streamer struct {
 	h           Handler
 	carrier     []byte
@@ -251,6 +262,21 @@ func (s *Streamer) Flush() {
 		s.tryParse(s.carrier)
 		s.carrier = s.carrier[:0]
 	}
+}
+
+// Writer returns an io.Writer that delegates to the Streamer's Write method.
+// The returned writer always returns len(p), nil on success.
+func (s *Streamer) Writer() io.Writer {
+	return writer{s: s}
+}
+
+type writer struct {
+	s *Streamer
+}
+
+func (w writer) Write(p []byte) (int, error) {
+	w.s.Write(p)
+	return len(p), nil
 }
 
 func (s *Streamer) tryParse(raw []byte) {

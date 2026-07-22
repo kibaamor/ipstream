@@ -38,12 +38,11 @@ jobs:
           version: latest
 
       - name: Test
-        run: go clean -testcache && go test -tags='ipstreamtests ipstreamstats' -covermode=atomic -coverprofile coverage.out ./...
+        run: go clean -testcache && go test -race -tags='ipstreamtests ipstreamstats' -covermode=atomic -coverprofile=coverage.txt ./...
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v7
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
         with:
-          files: coverage.out
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Log in to GHCR

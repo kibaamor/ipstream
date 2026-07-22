@@ -2,6 +2,10 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_shield)
 
 
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_shield&issueType=license)
+[![Codecov](https://codecov.io/gh/kibaamor/ipstream/branch/main/graph/badge.svg?token=tNKcOjlxLo)](https://codecov.io/gh/kibaamor/ipstream)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kibaamor/ipstream.svg)](https://pkg.go.dev/github.com/kibaamor/ipstream)
+
 `ipstream` extracts IPv4 and IPv6 addresses from byte streams.
 
 ## CLI
@@ -119,6 +123,5 @@ When reporting a bug, please include the input that reproduces it, the expected 
 ## License
 
 Apache License 2.0. See [LICENSE](./LICENSE).
-
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkibaamor%2Fipstream?ref=badge_large)

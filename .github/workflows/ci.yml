@@ -31,7 +31,7 @@ jobs:
           version: latest
 
       - name: Test
-        run: go clean -testcache && go test -covermode=atomic -coverprofile coverage.out ./...
+        run: go clean -testcache && go test -tags='ipstreamtests ipstreamstats' -covermode=atomic -coverprofile coverage.out ./...
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v7

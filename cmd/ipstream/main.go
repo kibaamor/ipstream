@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -40,20 +41,16 @@ Extract IPv4 and IPv6 addresses from standard input, one per line.
 `)
 	}
 
-	var showHelp bool
 	var showVersion bool
 
-	fs.BoolVar(&showHelp, "h", false, "show help")
-	fs.BoolVar(&showHelp, "help", false, "show help")
 	fs.BoolVar(&showVersion, "v", false, "show version")
 	fs.BoolVar(&showVersion, "version", false, "show version")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
-	}
-	if showHelp {
-		fs.Usage()
-		return 0
 	}
 	if showVersion {
 		_, _ = fmt.Fprintf(out, "Version: %s\nCommit: %s\nBuild Date: %s\nHome Page: %s\nAuthor: %s\nLicense: %s\n",
